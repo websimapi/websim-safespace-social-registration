@@ -1,0 +1,160 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeSpace Social - Registration</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="importmap">
+    {
+        "imports": {
+            "ethers": "https://cdn.ethers.io/lib/ethers-5.7.esm.min.js"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="60" cy="60" r="55" fill="#5b9bd5" stroke="#2e5984" stroke-width="2" />
+                <path d="M60 30 C 40 30, 30 45, 30 60 C 30 80, 45 90, 60 90 C 80 90, 90 75, 90 60 C 90 40, 75 30, 60 30 Z" fill="#ffffff" stroke="#2e5984" stroke-width="2" />
+                <path d="M60 45 C 50 45, 45 50, 45 60 C 45 70, 50 75, 60 75 C 70 75, 75 70, 75 60 C 75 50, 70 45, 60 45 Z" fill="#5b9bd5" />
+            </svg>
+            <h1>SafeSpace Social</h1>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h2>Registration</h2>
+                <p>Complete your registration by verifying your account with a $1 payment</p>
+            </div>
+            
+            <div class="card-body">
+                <div class="step-indicator">
+                    <div class="step active" id="step1-indicator">1. Account</div>
+                    <div class="step" id="step2-indicator">2. Payment</div>
+                    <div class="step" id="step3-indicator">3. Verification</div>
+                </div>
+                
+                <!-- Step 1: Account Setup -->
+                <div class="step-content active" id="step1">
+                    <h3>Create Your Account</h3>
+                    <form id="account-form">
+                        <div class="form-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="password">Password</label>
+                            <input type="password" id="password" required>
+                        </div>
+                        <button type="submit" class="btn primary">Continue to Payment</button>
+                    </form>
+                </div>
+                
+                <!-- Step 2: Payment -->
+                <div class="step-content" id="step2">
+                    <h3>Verify with $1 Payment</h3>
+                    <p>Connect your wallet and send $1 to verify your account.</p>
+                    
+                    <div class="wallet-section">
+                        <div id="wallet-status" class="wallet-status not-connected">
+                            Wallet not connected
+                        </div>
+                        <button id="connect-wallet" class="btn secondary">Connect Wallet</button>
+                    </div>
+
+                    <div class="payment-details" style="display: none;">
+                        <div class="form-group">
+                            <label>Payment Amount</label>
+                            <div class="payment-amount">$1.00 (≈ 0.0004 ETH)</div>
+                        </div>
+                        <div class="form-group">
+                            <label>Recipient Address</label>
+                            <div class="recipient-address" id="recipient-address">0x0000000000000000000000000000000000000000</div>
+                            <div class="config-address">
+                                <button id="config-address-btn" class="btn text">Change Address</button>
+                            </div>
+                        </div>
+                        <button id="send-payment" class="btn primary">Send Payment</button>
+                    </div>
+                    
+                    <div class="navigation-buttons">
+                        <button id="back-to-step1" class="btn text">Back</button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Verification -->
+                <div class="step-content" id="step3">
+                    <h3>Verifying Payment</h3>
+                    <div class="verification-status" id="verification-pending">
+                        <div class="spinner"></div>
+                        <p>Verifying your payment on the blockchain...</p>
+                    </div>
+                    
+                    <div class="verification-status" id="verification-success" style="display: none;">
+                        <div class="success-icon">
+                            <svg viewBox="0 0 24 24" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="11" fill="#4CAF50" />
+                                <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" fill="white" />
+                            </svg>
+                        </div>
+                        <h3>Payment Verified!</h3>
+                        <p>Your account has been successfully verified.</p>
+                        <div class="transaction-info">
+                            <p>Transaction Hash: <span id="tx-hash"></span></p>
+                        </div>
+                        <button id="complete-registration" class="btn primary">Complete Registration</button>
+                    </div>
+                    
+                    <div class="verification-status" id="verification-failed" style="display: none;">
+                        <div class="error-icon">
+                            <svg viewBox="0 0 24 24" width="48" height="48" xmlns="http://www.w3.org/2000/svg">
+                                <circle cx="12" cy="12" r="11" fill="#F44336" />
+                                <path d="M16.5 7.5l-9 9M7.5 7.5l9 9" stroke="white" stroke-width="2" />
+                            </svg>
+                        </div>
+                        <h3>Verification Failed</h3>
+                        <p>We couldn't verify your payment. Please try again.</p>
+                        <button id="retry-payment" class="btn secondary">Retry Payment</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- API Configuration Modal -->
+        <div id="config-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h3>Configuration Settings</h3>
+                <form id="config-form">
+                    <div class="form-group">
+                        <label for="recipient-address-input">Recipient ETH Address</label>
+                        <input type="text" id="recipient-address-input" placeholder="0x...">
+                    </div>
+                    <div class="form-group">
+                        <label for="etherscan-api-key">Etherscan API Key (optional)</label>
+                        <input type="text" id="etherscan-api-key" placeholder="Your Etherscan API Key">
+                    </div>
+                    <div class="form-group">
+                        <label for="network-select">Ethereum Network</label>
+                        <select id="network-select">
+                            <option value="mainnet">Mainnet</option>
+                            <option value="goerli">Goerli (Testnet)</option>
+                            <option value="sepolia">Sepolia (Testnet)</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn primary">Save Settings</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="app.js"></script>
+<script defer src="https://static.cloudflareinsights.com/beacon.min.js/v8c78df7c7c0f484497ecbca7046644da1771523124516" integrity="sha512-8DS7rgIrAmghBFwoOTujcf6D9rXvH8xm8JQ1Ja01h9QX8EzXldiszufYa4IFfKdLUKTTrnSFXLDkUEOTrZQ8Qg==" data-cf-beacon='{"version":"2024.11.0","token":"4c6229722a6346bc8eb5cb0e5eae5d41","server_timing":{"name":{"cfCacheStatus":true,"cfEdge":true,"cfExtPri":true,"cfL4":true,"cfOrigin":true,"cfSpeedBrain":true},"location_startswith":null}}' crossorigin="anonymous"></script>
+</body>
+</html>
