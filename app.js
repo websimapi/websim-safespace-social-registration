@@ -47,6 +47,8 @@ const showStep = (step) => {
     document.getElementById(`step${step}-indicator`).classList.add('active');
     
     currentStep = step;
+    
+    console.log(`Showing step ${step}`); // Add debugging log
 };
 
 // Wallet connection
@@ -347,10 +349,18 @@ document.addEventListener('DOMContentLoaded', () => {
     loadConfig();
     
     // Step 1: Account form submission
-    document.getElementById('account-form').addEventListener('submit', (e) => {
-        e.preventDefault();
-        showStep(2);
-    });
+    const accountForm = document.getElementById('account-form');
+    console.log('Account form element:', accountForm); // Add debugging log
+    
+    if (accountForm) {
+        accountForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            console.log('Form submitted, moving to step 2'); // Add debugging log
+            showStep(2);
+        });
+    } else {
+        console.error('Account form element not found!');
+    }
     
     // Step 2: Back to step 1
     document.getElementById('back-to-step1').addEventListener('click', () => {
