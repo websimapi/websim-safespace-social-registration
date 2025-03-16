@@ -94,6 +94,7 @@
                     <div class="verification-status" id="verification-pending">
                         <div class="spinner"></div>
                         <p>Verifying your payment on the blockchain...</p>
+                        <p id="verification-waiting">Waiting for confirmation...</p>
                     </div>
                     
                     <div class="verification-status" id="verification-success" style="display: none;">
@@ -107,6 +108,10 @@
                         <p>Your account has been successfully verified.</p>
                         <div class="transaction-info">
                             <p>Transaction Hash: <span id="tx-hash"></span></p>
+                            <p><a id="tx-link" href="#" target="_blank" style="display: none;">View on Block Explorer</a></p>
+                            <div id="confirmation-time-container" style="display: none;">
+                                <p>Confirmed at: <span id="confirmation-time"></span></p>
+                            </div>
                         </div>
                         <button id="complete-registration" class="btn primary">Complete Registration</button>
                     </div>
@@ -119,7 +124,7 @@
                             </svg>
                         </div>
                         <h3>Verification Failed</h3>
-                        <p>We couldn't verify your payment. Please try again.</p>
+                        <p id="error-message">We couldn't verify your payment. Please try again.</p>
                         <button id="retry-payment" class="btn secondary">Retry Payment</button>
                     </div>
                 </div>

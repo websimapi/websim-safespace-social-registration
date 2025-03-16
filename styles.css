@@ -273,6 +273,29 @@ input:focus, select:focus {
     word-break: break-all;
 }
 
+#tx-link {
+    color: var(--primary-color);
+    text-decoration: underline;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+#tx-link:hover {
+    color: var(--primary-dark);
+}
+
+#verification-waiting {
+    font-style: italic;
+    color: var(--text-light);
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+#error-message {
+    color: var(--error-color);
+    margin-bottom: 1rem;
+}
+
 /* Modal Styles */
 .modal {
     display: none;
@@ -323,4 +346,3 @@ input:focus, select:focus {
         width: 95%;
     }
 }
-

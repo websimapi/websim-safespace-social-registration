@@ -68,6 +68,17 @@ async function connectWallet() {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         const userAddress = accounts[0];
         
+        // Check network matches the configured network
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const network = await provider.getNetwork();
+        const expectedNetwork = getExpectedNetworkId(config.network);
+        
+        if (network.chainId !== expectedNetwork) {
+            alert(`Please switch to ${config.network} network in your wallet to continue.`);
+            connectButton.textContent = 'Connect Wallet';
+            return;
+        }
+        
         // Update UI to show connected state
         walletStatus.textContent = `Connected: ${userAddress.substring(0, 6)}...${userAddress.substring(38)}`;
         walletStatus.classList.remove('not-connected');
@@ -96,6 +107,13 @@ async function connectWallet() {
             }
         });
         
+        // Listen for network changes
+        window.ethereum.on('chainChanged', (_chainId) => {
+            // Handle the new chain
+            // We recommend reloading the page unless you have good reason not to
+            window.location.reload();
+        });
+        
     } catch (error) {
         console.error('Error connecting wallet:', error);
         connectButton.textContent = 'Connect Wallet';
@@ -105,9 +123,32 @@ async function connectWallet() {
 
 // Send payment
 async function sendPayment() {
+    const sendButton = document.getElementById('send-payment');
     try {
+        sendButton.textContent = 'Sending...';
+        sendButton.disabled = true;
+        
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
+        
+        // Get current network
+        const network = await provider.getNetwork();
+        const expectedNetwork = getExpectedNetworkId(config.network);
+        
+        if (network.chainId !== expectedNetwork) {
+            alert(`Please switch to ${config.network} network in your wallet to continue.`);
+            sendButton.textContent = 'Send Payment';
+            sendButton.disabled = false;
+            return;
+        }
+        
+        // Verify recipient address is valid
+        if (!ethers.utils.isAddress(config.recipientAddress)) {
+            alert('Invalid recipient address. Please check configuration.');
+            sendButton.textContent = 'Send Payment';
+            sendButton.disabled = false;
+            return;
+        }
         
         // Create transaction
         const tx = await signer.sendTransaction({
@@ -123,13 +164,28 @@ async function sendPayment() {
         // Show transaction hash
         document.getElementById('tx-hash').textContent = tx.hash;
         
+        // Add link to transaction on block explorer
+        const blockExplorerUrl = getBlockExplorerUrl(config.network, tx.hash);
+        document.getElementById('tx-link').href = blockExplorerUrl;
+        document.getElementById('tx-link').style.display = 'inline';
+        
         // Begin verification process
         verifyTransaction(tx.hash);
         
     } catch (error) {
         console.error('Error sending payment:', error);
-        alert('Failed to send payment. Please try again.');
+        sendButton.textContent = 'Send Payment';
+        sendButton.disabled = false;
+        alert(`Failed to send payment: ${error.message}`);
     }
+}
+
+// Get block explorer URL based on network and transaction hash
+function getBlockExplorerUrl(network, txHash) {
+    const baseUrl = network === 'mainnet' 
+        ? 'https://etherscan.io' 
+        : `https://${network}.etherscan.io`;
+    return `${baseUrl}/tx/${txHash}`;
 }
 
 // Verify transaction
@@ -144,7 +200,7 @@ async function verifyTransaction(txHash) {
         }
     } catch (error) {
         console.error('Error verifying transaction:', error);
-        showVerificationFailed();
+        showVerificationFailed(error.message);
     }
 }
 
@@ -160,14 +216,31 @@ async function checkTransactionWithProvider(txHash) {
         while (attempts < maxAttempts) {
             const receipt = await provider.getTransactionReceipt(txHash);
             
-            if (receipt && receipt.status === 1) {
-                showVerificationSuccess();
-                return true;
-            } else if (receipt && receipt.status === 0) {
-                // Transaction failed on-chain
-                showVerificationFailed();
-                return true; // We got a definitive answer, so return true
+            if (receipt) {
+                if (receipt.status === 1) {
+                    // Get transaction details for confirmation
+                    const tx = await provider.getTransaction(txHash);
+                    const block = await provider.getBlock(receipt.blockNumber);
+                    
+                    // Show confirmation time in UI
+                    if (block) {
+                        const confirmationTime = new Date(block.timestamp * 1000).toLocaleString();
+                        document.getElementById('confirmation-time').textContent = confirmationTime;
+                        document.getElementById('confirmation-time-container').style.display = 'block';
+                    }
+                    
+                    showVerificationSuccess();
+                    return true;
+                } else if (receipt.status === 0) {
+                    // Transaction failed on-chain
+                    showVerificationFailed('Transaction failed on the blockchain. It may have run out of gas or encountered an error.');
+                    return true; // We got a definitive answer, so return true
+                }
             }
+            
+            // Update waiting message with attempt count
+            const waitingElement = document.getElementById('verification-waiting');
+            waitingElement.textContent = `Waiting for confirmation... (${attempts + 1}/${maxAttempts})`;
             
             // Wait 2 seconds before checking again
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -175,6 +248,7 @@ async function checkTransactionWithProvider(txHash) {
         }
         
         // If we exit the loop without returning, verification timed out
+        showVerificationFailed('Verification timed out. The transaction may still be pending.');
         return false;
     } catch (error) {
         console.error('Error checking transaction with provider:', error);
@@ -195,11 +269,37 @@ async function checkTransactionWithEtherscan(txHash) {
             const response = await fetch(apiUrl);
             const data = await response.json();
             
+            // Update waiting message with attempt count
+            const waitingElement = document.getElementById('verification-waiting');
+            waitingElement.textContent = `Waiting for confirmation via Etherscan... (${attempts + 1}/${maxAttempts})`;
+            
             if (data.result && data.result.status === "1") {
+                // Also get transaction timestamp if possible
+                try {
+                    const txInfoUrl = `https://${networkSubdomain}.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash=${txHash}&apikey=${config.etherscanApiKey}`;
+                    const txInfoResponse = await fetch(txInfoUrl);
+                    const txInfoData = await txInfoResponse.json();
+                    
+                    if (txInfoData.result && txInfoData.result.blockNumber) {
+                        const blockNumber = parseInt(txInfoData.result.blockNumber, 16);
+                        const blockUrl = `https://${networkSubdomain}.etherscan.io/api?module=block&action=getblockreward&blockno=${blockNumber}&apikey=${config.etherscanApiKey}`;
+                        const blockResponse = await fetch(blockUrl);
+                        const blockData = await blockResponse.json();
+                        
+                        if (blockData.result && blockData.result.timeStamp) {
+                            const confirmationTime = new Date(parseInt(blockData.result.timeStamp) * 1000).toLocaleString();
+                            document.getElementById('confirmation-time').textContent = confirmationTime;
+                            document.getElementById('confirmation-time-container').style.display = 'block';
+                        }
+                    }
+                } catch (err) {
+                    console.error('Error getting transaction timestamp:', err);
+                }
+                
                 showVerificationSuccess();
                 return;
             } else if (data.result && data.result.status === "0") {
-                showVerificationFailed();
+                showVerificationFailed('Transaction failed on the blockchain. It may have run out of gas or encountered an error.');
                 return;
             }
             
@@ -209,11 +309,21 @@ async function checkTransactionWithEtherscan(txHash) {
         }
         
         // If we exit the loop without returning, verification timed out
-        showVerificationFailed();
+        showVerificationFailed('Verification timed out. The transaction may still be pending.');
     } catch (error) {
         console.error('Error checking transaction with Etherscan:', error);
-        showVerificationFailed();
+        showVerificationFailed(`Etherscan API error: ${error.message}`);
     }
+}
+
+// Get expected network ID based on network name
+function getExpectedNetworkId(networkName) {
+    const networkMap = {
+        'mainnet': 1,
+        'goerli': 5,
+        'sepolia': 11155111
+    };
+    return networkMap[networkName] || 1; // Default to mainnet if network not found
 }
 
 // Show verification success UI
@@ -224,10 +334,11 @@ function showVerificationSuccess() {
 }
 
 // Show verification failed UI
-function showVerificationFailed() {
+function showVerificationFailed(errorMessage = 'Unknown error occurred') {
     document.getElementById('verification-pending').style.display = 'none';
     document.getElementById('verification-success').style.display = 'none';
     document.getElementById('verification-failed').style.display = 'block';
+    document.getElementById('error-message').textContent = errorMessage;
 }
 
 // Document ready function
@@ -303,4 +414,3 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.style.display = 'none';
     });
 });
-
